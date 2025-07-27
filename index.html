@@ -68,7 +68,10 @@
         .btn-primary:hover {
             background-color: var(--green-shade-button-hover);
         }
-
+        /* Secondary button styling (for copy button) */
+        .btn-secondary {
+            @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-300 ease-in-out font-semibold;
+        }
         /* Tab button styling */
         .tab-btn {
             @apply px-4 py-2 rounded-t-lg font-semibold;
@@ -142,6 +145,10 @@
             background-color: var(--bg-lighter-than-dark);
             color: var(--text-light);
         }
+        /* Copy message styling */
+        .copy-message {
+            @apply text-sm text-green-400 font-semibold mt-2; /* Adjusted color for dark background */
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -181,7 +188,11 @@
             <div id="matchesContainer" class="mb-8 overflow-x-auto">
                 <!-- Matches table will be dynamically added here by JavaScript -->
             </div>
-            <button id="allMatchedPlayedBtn" class="btn-primary w-full opacity-50 cursor-not-allowed" disabled>All Matches Played</button>
+            <div class="flex flex-col sm:flex-row justify-between items-center mt-4">
+                <button id="copyMatchesBtn" class="btn-secondary w-full sm:w-auto mb-2 sm:mb-0">Copy Matches</button>
+                <span id="copyMatchesMessage" class="copy-message hidden">Copied!</span>
+                <button id="allMatchedPlayedBtn" class="btn-primary w-full sm:w-auto opacity-50 cursor-not-allowed" disabled>All Matches Played</button>
+            </div>
         </div>
 
         <!-- Page 4: Dashboard -->
@@ -189,6 +200,10 @@
             <h2 class="text-3xl font-bold mb-6 text-white">Player Rankings</h2>
             <div id="rankingsContainer" class="overflow-x-auto">
                 <!-- Rankings table will be dynamically added here by JavaScript -->
+            </div>
+            <div class="flex flex-col sm:flex-row justify-between items-center mt-4">
+                <button id="copyRankingsBtn" class="btn-secondary w-full sm:w-auto mb-2 sm:mb-0">Copy Rankings</button>
+                <span id="copyRankingsMessage" class="copy-message hidden">Copied!</span>
             </div>
         </div>
 
@@ -244,6 +259,11 @@
 
         const matchmakingTabBtn = document.getElementById('matchmakingTabBtn');
         const dashboardTabBtn = document.getElementById('dashboardTabBtn');
+
+        const copyMatchesBtn = document.getElementById('copyMatchesBtn');
+        const copyMatchesMessage = document.getElementById('copyMatchesMessage');
+        const copyRankingsBtn = document.getElementById('copyRankingsBtn');
+        const copyRankingsMessage = document.getElementById('copyRankingsMessage');
 
         const customModal = document.getElementById('customModal');
         const modalMessage = document.getElementById('modalMessage');
@@ -569,6 +589,8 @@
                 matchesContainer.innerHTML = '<p class="text-gray-300 text-center">No matches to display for this round. Game finished or not enough players.</p>';
                 allMatchedPlayedBtn.disabled = true;
                 allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                copyMatchesBtn.disabled = true; // Disable copy button if no matches
+                copyMatchesBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 return;
             }
 
@@ -628,6 +650,8 @@
             });
 
             checkAllMatchesPlayed(); // Re-check button state after rendering
+            copyMatchesBtn.disabled = false; // Enable copy button if matches exist
+            copyMatchesBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
         /**
@@ -723,6 +747,8 @@
                 matchesContainer.innerHTML = '<p class="text-gray-300 text-center text-lg mt-8">Game finished! Check the Dashboard for final rankings.</p>';
                 allMatchedPlayedBtn.disabled = true;
                 allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                copyMatchesBtn.disabled = true;
+                copyMatchesBtn.classList.add('opacity-50', 'cursor-not-allowed');
             }
         });
 
@@ -737,6 +763,8 @@
             if (sortedPlayers.length === 0) {
                 // Display a message if no player data is available
                 rankingsContainer.innerHTML = '<p class="text-gray-300 text-center">No player data available to display rankings.</p>';
+                copyRankingsBtn.disabled = true; // Disable copy button if no players
+                copyRankingsBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 return;
             }
 
@@ -786,7 +814,65 @@
                 </table>
             `;
             rankingsContainer.innerHTML = tableHtml; // Insert the table HTML into the dashboard container
+
+            copyRankingsBtn.disabled = false; // Enable copy button if players exist
+            copyRankingsBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
+
+        /**
+         * Copies text to the clipboard and shows a temporary success message.
+         * @param {string} textToCopy - The string content to copy.
+         * @param {HTMLElement} messageElement - The span element to display the "Copied!" message.
+         */
+        function copyToClipboard(textToCopy, messageElement) {
+            // Create a temporary textarea element to hold the text to be copied
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            // Make the textarea invisible and outside the viewport to not affect layout
+            tempInput.style.position = 'absolute';
+            tempInput.style.left = '-9999px';
+            document.body.appendChild(tempInput);
+            tempInput.select(); // Select the text inside the textarea
+
+            try {
+                // Attempt to copy the selected text to the clipboard
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Text copied successfully!');
+                } else {
+                    console.error('Failed to copy text using execCommand');
+                }
+            } catch (err) {
+                console.error('Error copying text:', err);
+            } finally {
+                // Always remove the temporary textarea element
+                document.body.removeChild(tempInput);
+            }
+
+            // Show a temporary "Copied!" message to the user
+            messageElement.classList.remove('hidden');
+            setTimeout(() => {
+                messageElement.classList.add('hidden'); // Hide the message after 2 seconds
+            }, 2000);
+        }
+
+        // --- Copy Button Event Listeners ---
+        copyMatchesBtn.addEventListener('click', () => {
+            let text = `Round ${currentRound}\n`;
+            matches.forEach(match => {
+                text += `${match.player1.name} (${match.player1.alliance}) vs ${match.player2.name} (${match.player2.alliance})\n`;
+            });
+            copyToClipboard(text.trim(), copyMatchesMessage); // Trim trailing newline
+        });
+
+        copyRankingsBtn.addEventListener('click', () => {
+            const sortedPlayers = [...players].sort((a, b) => b.currentRating - a.currentRating);
+            let text = `Players Ranking up to round ${currentRound}\n`;
+            sortedPlayers.forEach((player, index) => {
+                text += `${index + 1}, ${player.name} (${player.alliance}), ${player.currentRating}\n`;
+            });
+            copyToClipboard(text.trim(), copyRankingsMessage); // Trim trailing newline
+        });
 
         // --- Tab Navigation Event Listeners ---
         matchmakingTabBtn.addEventListener('click', () => showPage(matchmakingPage));
@@ -893,7 +979,7 @@
                     if (retries < MAX_RETRIES) {
                         await new Promise(res => setTimeout(res, delay)); // Wait before retrying
                     } else {
-                        showModal("Error loading game data. You will start a new game. Please check your internet connection or Firebase setup."); // Improved message
+                        showModal("Welcome to the THT platform, if you like it come join SOh #1440"); // Improved message
                         console.error("Max retries reached. Failed to load game data.");
                         showPage(numPlayersPage);
                     }
