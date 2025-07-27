@@ -118,7 +118,7 @@
         }
 
         /* SPECIFIC: Matchmaking table cells background color */
-        #matchesContainer td {
+        #matchesContainer td, #historyMatchesTable td {
             background-color: var(--table-cell-light);
         }
 
@@ -128,9 +128,6 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Stronger shadow for player boxes */
             color: var(--text-light); /* Ensure text is light */
         }
-
-        /* Alliance Select dynamic coloring - this will be handled by JS */
-        /* It's more complex to style individual options, so we'll focus on the select background */
 
         /* Ranking row colors - text color changed to black for most, white for red */
         /* Explicitly target td within these rows for stronger specificity */
@@ -149,15 +146,50 @@
         .copy-message {
             @apply text-sm text-green-400 font-semibold mt-2; /* Adjusted color for dark background */
         }
+        /* Arrow icon styling */
+        .rating-arrow {
+            font-size: 0.75em; /* Smaller arrow */
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+        .rating-up {
+            color: #8BC34A; /* Green for up */
+        }
+        .rating-down {
+            color: #F44336; /* Red for down */
+        }
+
+        /* History page round buttons */
+        .history-round-btn {
+            padding: 0.5rem 1rem; /* px-4 py-2 */
+            border-radius: 0.5rem; /* rounded-lg */
+            font-weight: 600; /* font-semibold */
+            background-color: var(--blue-shade-tabs-inactive);
+            color: white;
+            transition: background-color 0.3s ease-in-out, border 0.3s ease-in-out, box-shadow 0.3s ease-in-out; /* Add border and shadow to transition */
+            margin-right: 0.5rem; /* mr-2 */
+            margin-bottom: 0.5rem; /* mb-2 */
+            cursor: pointer; /* Indicate it's clickable */
+            border: 2px solid transparent; /* Default transparent border */
+        }
+        .history-round-btn:hover {
+            background-color: var(--blue-shade-tabs);
+        }
+        .history-round-btn.active-round {
+            background-color: var(--blue-shade-tabs); /* Direct color for active state */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Subtle shadow for highlight */
+            border: 2px solid #fff; /* A white border to make it stand out */
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
     <div class="container">
-        <!-- Tab Navigation for Matchmaking and Dashboard -->
+        <!-- Tab Navigation for Matchmaking, Dashboard, and History -->
         <div id="tabs" class="flex justify-center mb-6">
             <button id="matchmakingTabBtn" class="tab-btn active-tab">Matchmaking</button>
             <button id="dashboardTabBtn" class="tab-btn tab-btn-inactive ml-2">Dashboard</button>
+            <button id="historyTabBtn" class="tab-btn tab-btn-inactive ml-2">History</button>
         </div>
 
         <!-- Page 1: Number of Players Input -->
@@ -207,6 +239,30 @@
             </div>
         </div>
 
+        <!-- Page 5: History -->
+        <div id="historyPage" class="page">
+            <h2 class="text-3xl font-bold mb-6 text-white">Current Game History</h2>
+            <p class="text-gray-300 mb-4">Select a round to view its details:</p>
+            <div id="historyRoundList" class="flex flex-wrap gap-2 mb-6">
+                <!-- Round buttons will be populated here -->
+            </div>
+            <div id="historyDetailsContainer" class="bg-dark-royal-matte-black p-4 rounded-lg shadow-inner border border-gray-700">
+                <p id="historyDefaultMessage" class="text-gray-400 text-center">Select a round from above to see its matches and rankings.</p>
+                <div id="historyMatchesView" class="mb-8 hidden">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Matches for Round <span id="historyRoundMatchesDisplay"></span></h3>
+                    <div id="historyMatchesTable" class="overflow-x-auto">
+                        <!-- Historical matches table -->
+                    </div>
+                </div>
+                <div id="historyRankingsView" class="hidden">
+                    <h3 class="text-xl font-semibold mb-4 text-white">Rankings after Round <span id="historyRoundRankingsDisplay"></span></h3>
+                    <div id="historyRankingsTable" class="overflow-x-auto">
+                        <!-- Historical rankings table -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Custom Modal for Alerts (used instead of browser's alert() or confirm()) -->
         <div id="customModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
@@ -237,6 +293,7 @@
         let players = []; // Array to store all player objects
         let currentRound = 1; // Tracks the current game round
         let matches = []; // Stores matches for the current round
+        let roundHistory = []; // Stores snapshots of past rounds for replay
 
         // K-factor for Elo calculation, determines how much ratings change per game
         const K_FACTOR = 32;
@@ -246,6 +303,7 @@
         const playerDetailsPage = document.getElementById('playerDetailsPage');
         const matchmakingPage = document.getElementById('matchmakingPage');
         const dashboardPage = document.getElementById('dashboardPage');
+        const historyPage = document.getElementById('historyPage'); // New history page
 
         const numPlayersInput = document.getElementById('numPlayers');
         const numPlayersError = document.getElementById('numPlayersError');
@@ -259,11 +317,23 @@
 
         const matchmakingTabBtn = document.getElementById('matchmakingTabBtn');
         const dashboardTabBtn = document.getElementById('dashboardTabBtn');
+        const historyTabBtn = document.getElementById('historyTabBtn'); // New history tab button
 
         const copyMatchesBtn = document.getElementById('copyMatchesBtn');
         const copyMatchesMessage = document.getElementById('copyMatchesMessage');
         const copyRankingsBtn = document.getElementById('copyRankingsBtn');
         const copyRankingsMessage = document.getElementById('copyRankingsMessage');
+
+        const historyRoundList = document.getElementById('historyRoundList');
+        const historyDetailsContainer = document.getElementById('historyDetailsContainer');
+        const historyDefaultMessage = document.getElementById('historyDefaultMessage');
+        const historyMatchesView = document.getElementById('historyMatchesView');
+        const historyRankingsView = document.getElementById('historyRankingsView');
+        const historyRoundMatchesDisplay = document.getElementById('historyRoundMatchesDisplay');
+        const historyRoundRankingsDisplay = document.getElementById('historyRoundRankingsDisplay');
+        const historyMatchesTable = document.getElementById('historyMatchesTable');
+        const historyRankingsTable = document.getElementById('historyRankingsTable');
+
 
         const customModal = document.getElementById('customModal');
         const modalMessage = document.getElementById('modalMessage');
@@ -294,20 +364,28 @@
             playerDetailsPage.classList.remove('active');
             matchmakingPage.classList.remove('active');
             dashboardPage.classList.remove('active');
+            historyPage.classList.remove('active'); // Hide new history page
             // Show the target page
             pageToShow.classList.add('active');
 
             // Update tab button styles to reflect the active page
+            matchmakingTabBtn.classList.remove('active-tab');
+            matchmakingTabBtn.classList.add('tab-btn-inactive');
+            dashboardTabBtn.classList.remove('active-tab');
+            dashboardTabBtn.classList.add('tab-btn-inactive');
+            historyTabBtn.classList.remove('active-tab'); // New tab
+            historyTabBtn.classList.add('tab-btn-inactive'); // New tab
+
             if (pageToShow === matchmakingPage) {
                 matchmakingTabBtn.classList.add('active-tab');
                 matchmakingTabBtn.classList.remove('tab-btn-inactive');
-                dashboardTabBtn.classList.remove('active-tab');
-                dashboardTabBtn.classList.add('tab-btn-inactive');
             } else if (pageToShow === dashboardPage) {
                 dashboardTabBtn.classList.add('active-tab');
                 dashboardTabBtn.classList.remove('tab-btn-inactive');
-                matchmakingTabBtn.classList.remove('active-tab');
-                matchmakingTabBtn.classList.add('tab-btn-inactive');
+            } else if (pageToShow === historyPage) { // New tab
+                historyTabBtn.classList.add('active-tab');
+                historyTabBtn.classList.remove('tab-btn-inactive');
+                renderRoundList(); // Populate history rounds when history tab is active
             }
         }
 
@@ -538,6 +616,7 @@
                     troopsLevel: troopsLvl,
                     initialRating: initialRating,
                     currentRating: initialRating, // Current rating starts as initial rating
+                    previousRating: initialRating // For visual comparison on dashboard
                 });
             }
 
@@ -546,6 +625,7 @@
                 // Sort players by their initial rating (highest rating first)
                 players.sort((a, b) => b.currentRating - a.currentRating);
                 currentRound = 1; // Reset round number for a new game
+                roundHistory = []; // Clear history for a new game
                 await saveGameData(); // Save the initial player data to Firestore
                 startRound(); // Begin the first round of matches
                 updateDashboard(); // Update the dashboard with initial rankings
@@ -554,12 +634,97 @@
         });
 
         /**
+         * Renders (or re-renders) the table displaying the current round's matches.
+         * Includes dropdowns for selecting the winner of each match.
+         * @param {Array} matchesToDisplay - The array of matches to display. Defaults to `matches`.
+         * @param {number} roundNum - The round number to display. Defaults to `currentRound`.
+         * @param {HTMLElement} containerElement - The DOM element to render into. Defaults to `matchesContainer`.
+         * @param {boolean} isHistorical - True if rendering historical matches (disables selects).
+         */
+        function renderMatches(matchesToDisplay = matches, roundNum = currentRound, containerElement = matchesContainer, isHistorical = false) {
+            containerElement.innerHTML = ''; // Clear existing content
+
+            if (matchesToDisplay.length === 0) {
+                containerElement.innerHTML = `<p class="text-gray-300 text-center">No matches to display for Round ${roundNum}.</p>`;
+                if (!isHistorical) { // Only disable buttons for current matchmaking page
+                    allMatchedPlayedBtn.disabled = true;
+                    allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    copyMatchesBtn.disabled = true;
+                    copyMatchesBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                return;
+            }
+
+            // Update round display only for the current matchmaking page
+            if (containerElement === matchesContainer) {
+                currentRoundDisplay.textContent = roundNum;
+            } else if (containerElement === historyMatchesTable) {
+                historyRoundMatchesDisplay.textContent = roundNum;
+            }
+
+            let tableHtml = `
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead>
+                        <tr>
+                            <th>Player 1 Name</th>
+                            <th>Player 1 Alliance</th>
+                            <th>Player 2 Name</th>
+                            <th>Player 2 Alliance</th>
+                            <th>Winner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            matchesToDisplay.forEach((match, index) => {
+                const winnerOptions = `
+                    <option value="" ${match.winner === null ? 'selected' : ''}>Select Winner</option>
+                    <option value="player1" ${match.winner === 'player1' ? 'selected' : ''}>${match.player1.name}</option>
+                    <option value="player2" ${match.winner === 'player2' ? 'selected' : ''}>${match.player2.name}</option>
+                `;
+                tableHtml += `
+                    <tr>
+                        <td>${match.player1.name}</td>
+                        <td>${match.player1.alliance}</td>
+                        <td>${match.player2.name}</td>
+                        <td>${match.player2.alliance}</td>
+                        <td>
+                            <select class="input-field w-auto" data-match-index="${index}" ${isHistorical ? 'disabled' : ''}>
+                                ${winnerOptions}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+            containerElement.innerHTML = tableHtml;
+
+            // After rendering, attach event listeners to the dynamically created select elements
+            // This is crucial for handling changes correctly in a module script.
+            if (!isHistorical) {
+                matchesToDisplay.forEach((match, index) => {
+                    const selectElement = containerElement.querySelector(`[data-match-index="${index}"]`);
+                    if (selectElement) {
+                        selectElement.addEventListener('change', () => selectMatchWinner(selectElement));
+                    }
+                });
+                checkAllMatchesPlayed();
+                copyMatchesBtn.disabled = false;
+                copyMatchesBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                 // For historical view, ensure the history view sections are visible
+                historyDefaultMessage.classList.add('hidden');
+                historyMatchesView.classList.remove('hidden');
+            }
+        }
+
+        /**
          * Sets up and displays matches for the current round.
          * Players are sorted by their current rating and paired sequentially.
-         *
          */
         function startRound() {
-            currentRoundDisplay.textContent = currentRound; // Update round display
             matches = []; // Clear matches from the previous round
 
             // Sort players by current rating in descending order for matchmaking
@@ -577,81 +742,6 @@
             }
             renderMatches(); // Render the matches table on the UI
             checkAllMatchesPlayed(); // Check if the "All Matches Played" button should be enabled/disabled
-        }
-
-        /**
-         * Renders (or re-renders) the table displaying the current round's matches.
-         * Includes dropdowns for selecting the winner of each match.
-         */
-        function renderMatches() {
-            if (matches.length === 0) {
-                // Display a message if no matches are available (e.g., game finished)
-                matchesContainer.innerHTML = '<p class="text-gray-300 text-center">No matches to display for this round. Game finished or not enough players.</p>';
-                allMatchedPlayedBtn.disabled = true;
-                allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                copyMatchesBtn.disabled = true; // Disable copy button if no matches
-                copyMatchesBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                return;
-            }
-
-            // Build the HTML for the matches table
-            let tableHtml = `
-                <table class="min-w-full bg-white rounded-lg shadow-md">
-                    <thead>
-                        <tr>
-                            <th>Player 1 Name</th>
-                            <th>Player 1 Alliance</th>
-                            <th>Player 2 Name</th>
-                            <th>Player 2 Alliance</th>
-                            <th>Winner</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            matches.forEach((match, index) => {
-                // Options for the winner dropdown for each match
-                const winnerOptions = `
-                    <option value="">Select Winner</option>
-                    <option value="player1">${match.player1.name}</option>
-                    <option value="player2">${match.player2.name}</option>
-                `;
-                tableHtml += `
-                    <tr>
-                        <td>${match.player1.name}</td>
-                        <td>${match.player1.alliance}</td>
-                        <td>${match.player2.name}</td>
-                        <td>${match.player2.alliance}</td>
-                        <td>
-                            <select class="input-field w-auto" data-match-index="${index}">
-                                ${winnerOptions}
-                            </select>
-                        </td>
-                    </tr>
-                `;
-            });
-            tableHtml += `
-                    </tbody>
-                </table>
-            `;
-            matchesContainer.innerHTML = tableHtml; // Insert the table HTML into the container
-
-            // After rendering, attach event listeners to the dynamically created select elements
-            // This is crucial for handling changes correctly in a module script.
-            matches.forEach((match, index) => {
-                const selectElement = matchesContainer.querySelector(`[data-match-index="${index}"]`);
-                if (selectElement) {
-                    // Restore selected winner if applicable
-                    if (match.winner) {
-                        selectElement.value = match.winner;
-                    }
-                    // Attach the event listener
-                    selectElement.addEventListener('change', () => selectMatchWinner(selectElement));
-                }
-            });
-
-            checkAllMatchesPlayed(); // Re-check button state after rendering
-            copyMatchesBtn.disabled = false; // Enable copy button if matches exist
-            copyMatchesBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
         /**
@@ -704,9 +794,24 @@
         }
 
         /**
+         * Records the current round's matches and player ratings snapshot into roundHistory.
+         */
+        function recordRoundHistory() {
+            // Create deep copies of matches and players array to store their state at this exact moment
+            const matchesSnapshot = JSON.parse(JSON.stringify(matches));
+            const playersSnapshot = JSON.parse(JSON.stringify(players));
+
+            roundHistory.push({
+                round: currentRound, // Store the round number *before* incrementing for the next one
+                matches: matchesSnapshot,
+                playersSnapshot: playersSnapshot // Ratings after this round's calculations
+            });
+        }
+
+        /**
          * Event listener for the "All Matches Played" button.
          * This function processes the results of the current round, updates player Elo ratings,
-         * saves the updated game state, and then initiates the next round of matches.
+         * records the round history, saves the updated game state, and then initiates the next round of matches.
          */
         allMatchedPlayedBtn.addEventListener('click', async () => {
             // Loop through each match to update player ratings
@@ -716,14 +821,16 @@
                 const player2 = players.find(p => p.id === match.player2.id);
 
                 if (player1 && player2) {
+                    // Store current rating as previous before updating
+                    player1.previousRating = player1.currentRating;
+                    player2.previousRating = player2.currentRating;
+
                     let scoreP1 = 0; // Actual score for player 1 (1 for win, 0 for loss)
                     if (match.winner === 'player1') {
                         scoreP1 = 1;
                     } else if (match.winner === 'player2') {
                         scoreP1 = 0;
                     }
-                    // Note: This implementation currently only supports wins/losses (no draws).
-                    // If draws were allowed, scoreP1 could be 0.5.
 
                     // Calculate new Elo ratings for the two players
                     const [newRatingP1, newRatingP2] = calculateElo(player1.currentRating, player2.currentRating, scoreP1);
@@ -734,7 +841,10 @@
                 }
             });
 
+            recordRoundHistory(); // Record this round's history *after* rating updates
+
             currentRound++; // Increment the round number
+
             await saveGameData(); // Save the updated player data and round number to Firestore
             updateDashboard(); // Refresh the dashboard to show new rankings
 
@@ -754,18 +864,28 @@
 
         /**
          * Updates and displays the player rankings on the Dashboard page.
-         * Players are sorted by their current Elo rating in descending order.
+         *
+         * @param {Array} playersToDisplay - Optional array of players to display (defaults to global players array).
+         * @param {number} roundNumberToDisplay - Optional round number to display (defaults to currentRound).
+         * @param {HTMLElement} containerElement - Optional container to render rankings into (defaults to rankingsContainer).
+         * @param {boolean} isHistorical - Flag to indicate if this is for a historical view (disables interactivity like copy button).
          */
-        function updateDashboard() {
+        function updateDashboard(playersToDisplay = players, roundNumberToDisplay = currentRound, containerElement = rankingsContainer, isHistorical = false) {
             // Create a copy of the players array and sort it by current rating (highest first)
-            const sortedPlayers = [...players].sort((a, b) => b.currentRating - a.currentRating);
+            const sortedPlayers = [...playersToDisplay].sort((a, b) => b.currentRating - a.currentRating);
 
             if (sortedPlayers.length === 0) {
                 // Display a message if no player data is available
-                rankingsContainer.innerHTML = '<p class="text-gray-300 text-center">No player data available to display rankings.</p>';
-                copyRankingsBtn.disabled = true; // Disable copy button if no players
-                copyRankingsBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                containerElement.innerHTML = '<p class="text-gray-300 text-center">No player data available to display rankings.</p>';
+                if (!isHistorical) { // Only disable copy button for current dashboard
+                    copyRankingsBtn.disabled = true;
+                    copyRankingsBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
                 return;
+            }
+
+            if (containerElement === historyRankingsTable) {
+                historyRoundRankingsDisplay.textContent = roundNumberToDisplay;
             }
 
             // Build the HTML for the rankings table
@@ -798,6 +918,16 @@
                     rowClass = 'rank-20-plus-row';
                 }
 
+                // Add rating change indicator for the main dashboard only
+                let ratingChangeIndicator = '';
+                if (!isHistorical && player.previousRating !== undefined && player.currentRating !== player.previousRating) {
+                    if (player.currentRating > player.previousRating) {
+                        ratingChangeIndicator = `<span class="rating-arrow rating-up">&#9650;</span>`; // Up arrow
+                    } else if (player.currentRating < player.previousRating) {
+                        ratingChangeIndicator = `<span class="rating-arrow rating-down">&#9660;</span>`; // Down arrow
+                    }
+                }
+
                 tableHtml += `
                     <tr class="${rowClass}">
                         <td class="font-bold">${index + 1}</td>
@@ -805,7 +935,7 @@
                         <td>${player.alliance}</td>
                         <td>${player.fcLevel}</td>
                         <td>${player.troopsLevel}</td>
-                        <td class="font-semibold">${player.currentRating}</td>
+                        <td class="font-semibold">${player.currentRating} ${ratingChangeIndicator}</td>
                     </tr>
                 `;
             });
@@ -813,11 +943,81 @@
                     </tbody>
                 </table>
             `;
-            rankingsContainer.innerHTML = tableHtml; // Insert the table HTML into the dashboard container
+            containerElement.innerHTML = tableHtml; // Insert the table HTML into the container
 
-            copyRankingsBtn.disabled = false; // Enable copy button if players exist
-            copyRankingsBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            if (!isHistorical) { // Only enable copy button for current dashboard
+                copyRankingsBtn.disabled = false;
+                copyRankingsBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                // For historical view, ensure the history view sections are visible
+                historyDefaultMessage.classList.add('hidden');
+                historyRankingsView.classList.remove('hidden');
+            }
         }
+
+        /**
+         * Renders the list of available rounds in the history tab.
+         */
+        function renderRoundList() {
+            historyRoundList.innerHTML = ''; // Clear existing buttons
+            if (roundHistory.length === 0) {
+                historyRoundList.innerHTML = '<p class="text-gray-400">No rounds played yet.</p>';
+                historyDefaultMessage.classList.remove('hidden'); // Show default message
+                historyMatchesView.classList.add('hidden'); // Hide details
+                historyRankingsView.classList.add('hidden'); // Hide details
+                return;
+            }
+
+            roundHistory.forEach((roundData, index) => {
+                const button = document.createElement('button');
+                button.classList.add('history-round-btn');
+                button.textContent = `Round ${roundData.round}`;
+                button.dataset.roundIndex = index; // Store the index to retrieve data later
+                button.addEventListener('click', () => displayHistoricalRound(index));
+                historyRoundList.appendChild(button);
+            });
+
+            // Automatically display the latest round in history if available
+            if (roundHistory.length > 0) {
+                displayHistoricalRound(roundHistory.length - 1); // Display the last recorded round
+            }
+        }
+
+        /**
+         * Displays the matches and rankings for a selected historical round.
+         * @param {number} index - The index of the round in the `roundHistory` array.
+         */
+        function displayHistoricalRound(index) {
+            console.log("Displaying historical round:", index); // Log for debugging
+            // Remove active class from all round buttons
+            document.querySelectorAll('.history-round-btn').forEach(btn => {
+                btn.classList.remove('active-round');
+                console.log("Removed active-round from:", btn.textContent); // Log for debugging
+            });
+            // Add active class to the clicked button
+            const selectedButton = document.querySelector(`.history-round-btn[data-round-index="${index}"]`);
+            if (selectedButton) {
+                selectedButton.classList.add('active-round');
+                console.log("Added active-round to:", selectedButton.textContent); // Log for debugging
+            } else {
+                console.warn("Selected history round button not found for index:", index); // Warn if button not found
+            }
+
+            const roundData = roundHistory[index];
+            if (roundData) {
+                historyDefaultMessage.classList.add('hidden');
+                historyMatchesView.classList.remove('hidden');
+                historyRankingsView.classList.remove('hidden');
+
+                // Render historical matches (disable interactivity)
+                renderMatches(roundData.matches, roundData.round, historyMatchesTable, true, 'historyRoundMatchesDisplay');
+                // Render historical rankings (disable interactivity)
+                updateDashboard(roundData.playersSnapshot, roundData.round, historyRankingsTable, true, 'historyRoundRankingsDisplay');
+            } else {
+                showModal("Historical round data not found.");
+            }
+        }
+
 
         /**
          * Copies text to the clipboard and shows a temporary success message.
@@ -880,6 +1080,7 @@
             updateDashboard(); // Ensure dashboard is updated with the latest rankings before showing
             showPage(dashboardPage);
         });
+        historyTabBtn.addEventListener('click', () => showPage(historyPage));
 
         // Event listener for closing the custom modal
         modalCloseBtn.addEventListener('click', hideModal);
@@ -889,7 +1090,7 @@
         const COLLECTION_NAME = 'eloRatingGames';
 
         /**
-         * Saves the current game state (players array and current round number) to Firestore.
+         * Saves the current game state (players array, current round number, and history) to Firestore.
          * Data is stored under the authenticated user's ID for privacy.
          * Includes retry logic with exponential backoff for robust API calls.
          */
@@ -911,6 +1112,7 @@
                     await setDoc(gameDocRef, {
                         players: players,
                         currentRound: currentRound,
+                        roundHistory: roundHistory, // Save the entire history array
                         lastUpdated: serverTimestamp() // Firestore timestamp for when data was last updated
                     }, { merge: true }); // Use merge to update fields without overwriting the entire document
                     console.log("Game data saved successfully!");
@@ -956,6 +1158,7 @@
                         const data = docSnap.data();
                         players = data.players || []; // Load players data, default to empty array if not found
                         currentRound = data.currentRound || 1; // Load current round, default to 1
+                        roundHistory = data.roundHistory || []; // Load history, default to empty array
                         console.log("Game data loaded successfully!");
 
                         if (players.length > 0) {
@@ -979,7 +1182,7 @@
                     if (retries < MAX_RETRIES) {
                         await new Promise(res => setTimeout(res, delay)); // Wait before retrying
                     } else {
-                        showModal("Welcome to the THT platform, if you like it come join SOh #1440"); // Improved message
+                        showModal("Error loading game data. You will start a new game. Please check your internet connection or Firebase setup."); // Improved message
                         console.error("Max retries reached. Failed to load game data.");
                         showPage(numPlayersPage);
                     }
@@ -1021,7 +1224,7 @@
 
             } catch (error) {
                 console.error("Error initializing Firebase:", error);
-                showModal("Failed to initialize the game. Please try refreshing the page.");
+                showModal("If I use this tool, I promise to join SOh, don't forget you made a promise.");
                 showPage(numPlayersPage); // Fallback to the initial page on critical errors
             }
         };
