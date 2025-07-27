@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THT Event - Elo Rating System</title>
+    <!-- Tailwind CSS for modern, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for a clean, readable font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Define CSS Variables for consistent theming */
+        :root {
+            --bg-dark-royal-matte-black: #1A1A2E; /* Very dark royal matte black */
+            --bg-lighter-than-dark: #2C394B;    /* Slightly lighter for elements */
+            --text-light: #E0E0E0;              /* Light text for dark backgrounds */
+            --text-dark: #333;                  /* Dark text for light backgrounds */
+            --blue-shade-tabs: #4A90E2;         /* For active tabs */
+            --blue-shade-tabs-inactive: #3A7BD5; /* For inactive tabs */
+            --green-shade-button: #4CAF50;      /* For primary green buttons */
+            --green-shade-button-hover: #43A047;/* Darker green on hover */
+            --table-cell-light: #3C4A5C;        /* Lighter color for table cells */
+
+            /* Ranking Colors */
+            --rank-1-color: #8BC34A;  /* Light Green */
+            --rank-2-3-color: #CDDC39; /* Yellowish Green */
+            --rank-4-10-color: #FFEB3B; /* Yellow */
+            --rank-11-20-color: #FF9800; /* Orange */
+            --rank-20-plus-color: #F44336; /* Red */
+        }
+
+        /* Base styles for the body and container, using Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark-royal-matte-black);
+            color: var(--text-light); /* Light text color for dark background */
+        }
+        .container {
+            max-width: 960px; /* Max width for the content area */
+            margin: 2rem auto; /* Center the container with vertical margin */
+            padding: 2rem; /* Padding inside the container */
+            background-color: var(--bg-dark-royal-matte-black); /* Same as body for seamless look */
+            border-radius: 0.75rem; /* Rounded corners */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Slightly stronger shadow */
+        }
+        /* Page management - hide inactive pages */
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block; /* Show the active page */
+        }
+        /* Common input field styling */
+        .input-field {
+            @apply p-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full;
+            background-color: var(--bg-lighter-than-dark); /* Lighter background for inputs */
+            color: var(--text-light); /* Light text for inputs */
+        }
+        .input-field::placeholder {
+            color: #A0A0A0; /* Lighter placeholder text */
+        }
+        /* Primary button styling */
+        .btn-primary {
+            @apply px-6 py-3 rounded-lg transition duration-300 ease-in-out font-semibold shadow-md;
+            background-color: var(--green-shade-button);
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: var(--green-shade-button-hover);
+        }
+
+        /* Tab button styling */
+        .tab-btn {
+            @apply px-4 py-2 rounded-t-lg font-semibold;
+            color: white; /* Default text color for tabs */
+        }
+        /* Active tab button styling */
+        .tab-btn.active-tab {
+            background-color: var(--blue-shade-tabs);
+        }
+        /* Inactive tab button styling */
+        .tab-btn-inactive {
+            background-color: var(--blue-shade-tabs-inactive);
+            opacity: 0.8; /* Slightly faded for inactive */
+        }
+        .tab-btn-inactive:hover {
+             background-color: var(--blue-shade-tabs);
+             opacity: 1;
+        }
+
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse; /* Remove double borders */
+            margin-top: 1rem;
+            border-radius: 0.5rem; /* Slightly rounded table */
+            overflow: hidden; /* Ensures rounded corners are visible */
+        }
+        th, td {
+            border: 1px solid var(--bg-lighter-than-dark); /* Border between cells */
+            padding: 0.75rem;
+            text-align: left;
+            color: var(--text-light); /* Keep text light by default for data cells */
+        }
+        th {
+            background-color: var(--bg-lighter-than-dark); /* Lighter than background for headers */
+            font-weight: 600; /* Semi-bold headers */
+            color: var(--text-light);
+        }
+        /* No background-color on generic td, allowing tr colors to apply */
+        td {
+            border: 1px solid var(--bg-lighter-than-dark); /* Keep border */
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        /* SPECIFIC: Matchmaking table cells background color */
+        #matchesContainer td {
+            background-color: var(--table-cell-light);
+        }
+
+        /* Player Box Styling (Page 2) */
+        .player-box {
+            background-color: var(--bg-lighter-than-dark);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Stronger shadow for player boxes */
+            color: var(--text-light); /* Ensure text is light */
+        }
+
+        /* Alliance Select dynamic coloring - this will be handled by JS */
+        /* It's more complex to style individual options, so we'll focus on the select background */
+
+        /* Ranking row colors - text color changed to black for most, white for red */
+        /* Explicitly target td within these rows for stronger specificity */
+        .rank-1-row td { background-color: var(--rank-1-color); color: black; font-weight: bold; }
+        .rank-2-3-row td { background-color: var(--rank-2-3-color); color: black; }
+        .rank-4-10-row td { background-color: var(--rank-4-10-color); color: black; }
+        .rank-11-20-row td { background-color: var(--rank-11-20-color); color: black; }
+        .rank-20-plus-row td { background-color: var(--rank-20-plus-color); color: white; } /* Keep text white for red */
+
+        /* Modal styling */
+        #customModal .bg-white {
+            background-color: var(--bg-lighter-than-dark);
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="container">
+        <!-- Tab Navigation for Matchmaking and Dashboard -->
+        <div id="tabs" class="flex justify-center mb-6">
+            <button id="matchmakingTabBtn" class="tab-btn active-tab">Matchmaking</button>
+            <button id="dashboardTabBtn" class="tab-btn tab-btn-inactive ml-2">Dashboard</button>
+        </div>
+
+        <!-- Page 1: Number of Players Input -->
+        <div id="numPlayersPage" class="page active text-center">
+            <h2 class="text-3xl font-bold mb-3 text-white">THT Event!</h2>
+            <p class="text-white text-md mb-8">Made by the cool people of #1440</p>
+            <p class="text-gray-300 mb-8">Let's get started. Please enter the total number of participants.</p>
+            <div class="mb-6 max-w-sm mx-auto">
+                <label for="numPlayers" class="block text-gray-200 text-lg font-medium mb-2 text-left">Number of Participants (even number):</label>
+                <input type="number" id="numPlayers" min="2" step="2" class="input-field" placeholder="e.g., 4, 6, 8">
+                <p id="numPlayersError" class="text-red-400 text-sm mt-2 hidden text-left">Please enter an even number of participants (minimum 2).</p>
+            </div>
+            <button id="nextToPlayerDetails" class="btn-primary">Next</button>
+        </div>
+
+        <!-- Page 2: Player Details Input -->
+        <div id="playerDetailsPage" class="page">
+            <h2 class="text-3xl font-bold mb-6 text-white">Enter Player Details</h2>
+            <div id="playerInputs" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Player input fields will be dynamically added here by JavaScript -->
+            </div>
+            <button id="nextToMatchmaking" class="btn-primary w-full opacity-50 cursor-not-allowed" disabled>Start Matchmaking</button>
+        </div>
+
+        <!-- Page 3: Matchmaking -->
+        <div id="matchmakingPage" class="page">
+            <h2 class="text-3xl font-bold mb-6 text-white">Current Round: <span id="currentRoundDisplay">1</span></h2>
+            <div id="matchesContainer" class="mb-8 overflow-x-auto">
+                <!-- Matches table will be dynamically added here by JavaScript -->
+            </div>
+            <button id="allMatchedPlayedBtn" class="btn-primary w-full opacity-50 cursor-not-allowed" disabled>All Matches Played</button>
+        </div>
+
+        <!-- Page 4: Dashboard -->
+        <div id="dashboardPage" class="page">
+            <h2 class="text-3xl font-bold mb-6 text-white">Player Rankings</h2>
+            <div id="rankingsContainer" class="overflow-x-auto">
+                <!-- Rankings table will be dynamically added here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Custom Modal for Alerts (used instead of browser's alert() or confirm()) -->
+        <div id="customModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+                <p id="modalMessage" class="text-gray-800 text-lg mb-6"></p>
+                <button id="modalCloseBtn" class="btn-primary w-full">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript logic -->
+    <script type="module">
+        // Import Firebase modules directly for use in the script
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas runtime for Firebase setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
+
+        // Firebase service instances
+        let app, db, auth;
+        // User ID for Firestore data isolation. Defaults to 'anonymous' until authenticated.
+        let userId = 'anonymous';
+
+        // Game state variables
+        let players = []; // Array to store all player objects
+        let currentRound = 1; // Tracks the current game round
+        let matches = []; // Stores matches for the current round
+
+        // K-factor for Elo calculation, determines how much ratings change per game
+        const K_FACTOR = 32;
+
+        // DOM Element references for easier access
+        const numPlayersPage = document.getElementById('numPlayersPage');
+        const playerDetailsPage = document.getElementById('playerDetailsPage');
+        const matchmakingPage = document.getElementById('matchmakingPage');
+        const dashboardPage = document.getElementById('dashboardPage');
+
+        const numPlayersInput = document.getElementById('numPlayers');
+        const numPlayersError = document.getElementById('numPlayersError');
+        const nextToPlayerDetailsBtn = document.getElementById('nextToPlayerDetails');
+        const playerInputsContainer = document.getElementById('playerInputs');
+        const nextToMatchmakingBtn = document.getElementById('nextToMatchmaking');
+        const allMatchedPlayedBtn = document.getElementById('allMatchedPlayedBtn');
+        const currentRoundDisplay = document.getElementById('currentRoundDisplay');
+        const matchesContainer = document.getElementById('matchesContainer');
+        const rankingsContainer = document.getElementById('rankingsContainer');
+
+        const matchmakingTabBtn = document.getElementById('matchmakingTabBtn');
+        const dashboardTabBtn = document.getElementById('dashboardTabBtn');
+
+        const customModal = document.getElementById('customModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+        // Predefined options for player attributes
+        const allianceOptions = ['AoW', 'REB', 'HtH', 'BER', 'SOh', 'RIS'];
+        const levelOptions = ['Fc-8', 'Fc-7', 'Fc-6', 'Fc-5', 'Fc-4', 'Fc-3', 'Fc-2', 'Fc-1'];
+
+        // Alliance to color mapping for visual distinction (example colors)
+        const allianceColors = {
+            'AoW': '#FF5733', /* Red-Orange */
+            'REB': '#33FF57', /* Green */
+            'HtH': '#3357FF', /* Blue */
+            'BER': '#FF33DA', /* Pink/Magenta */
+            'SOh': '#F4D03F', /* Yellow */
+            'RIS': '#8A2BE2'  /* Blue Violet */
+        };
+
+        /**
+         * Controls page visibility, showing only the specified page and hiding others.
+         * Also updates the active state of the tab navigation buttons.
+         * @param {HTMLElement} pageToShow - The DOM element of the page to be displayed.
+         */
+        function showPage(pageToShow) {
+            // Hide all pages
+            numPlayersPage.classList.remove('active');
+            playerDetailsPage.classList.remove('active');
+            matchmakingPage.classList.remove('active');
+            dashboardPage.classList.remove('active');
+            // Show the target page
+            pageToShow.classList.add('active');
+
+            // Update tab button styles to reflect the active page
+            if (pageToShow === matchmakingPage) {
+                matchmakingTabBtn.classList.add('active-tab');
+                matchmakingTabBtn.classList.remove('tab-btn-inactive');
+                dashboardTabBtn.classList.remove('active-tab');
+                dashboardTabBtn.classList.add('tab-btn-inactive');
+            } else if (pageToShow === dashboardPage) {
+                dashboardTabBtn.classList.add('active-tab');
+                dashboardTabBtn.classList.remove('tab-btn-inactive');
+                matchmakingTabBtn.classList.remove('active-tab');
+                matchmakingTabBtn.classList.add('tab-btn-inactive');
+            }
+        }
+
+        /**
+         * Displays a custom modal dialog with a given message. This replaces `alert()` for better UX.
+         * @param {string} message - The message text to display in the modal.
+         */
+        function showModal(message) {
+            modalMessage.textContent = message;
+            customModal.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the custom modal dialog.
+         */
+        function hideModal() {
+            customModal.classList.add('hidden');
+        }
+
+        /**
+         * Event listener for the "Next" button on the number of players page.
+         * Validates the input and proceeds to the player details page.
+         */
+        nextToPlayerDetailsBtn.addEventListener('click', () => {
+            console.log("--- Next button clicked trace ---");
+            console.log("Input value from numPlayersInput:", numPlayersInput.value);
+            const num = parseInt(numPlayersInput.value);
+            console.log("Parsed number:", num);
+
+            if (isNaN(num) || num < 2 || num % 2 !== 0) {
+                console.log("Validation failed: Input is NaN, < 2, or odd.");
+                numPlayersError.classList.remove('hidden');
+                showModal("Please enter a valid even number of participants (minimum 2).");
+            } else {
+                console.log("Validation successful. Proceeding to player details.");
+                numPlayersError.classList.add('hidden');
+                generatePlayerInputs(num);
+                showPage(playerDetailsPage);
+            }
+            console.log("--- End Next button clicked trace ---");
+        });
+
+        /**
+         * Dynamically generates input fields (Name, Alliance, FC Level, Troops Level)
+         * for each player based on the specified number of participants.
+         * @param {number} num - The total number of players.
+         */
+        function generatePlayerInputs(num) {
+            playerInputsContainer.innerHTML = ''; // Clear any existing input fields
+            for (let i = 0; i < num; i++) {
+                const playerDiv = document.createElement('div');
+                playerDiv.classList.add('p-4', 'border', 'border-gray-700', 'rounded-lg', 'shadow-lg', 'player-box'); // Add player-box class
+                playerDiv.innerHTML = `
+                    <h3 class="text-xl font-semibold mb-4 text-gray-100">Player ${i + 1}</h3>
+                    <div class="mb-3">
+                        <label for="playerName${i}" class="block text-sm font-medium text-gray-200 mb-1">Name:</label>
+                        <input type="text" id="playerName${i}" class="input-field" placeholder="Player Name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="playerAlliance${i}" class="block text-sm font-medium text-gray-200 mb-1">Alliance:</label>
+                        <select id="playerAlliance${i}" class="input-field alliance-select" required>
+                            ${allianceOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="playerFcLvl${i}" class="block text-sm font-medium text-gray-200 mb-1">FC Level:</label>
+                        <select id="playerFcLvl${i}" class="input-field" required>
+                            ${levelOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="playerTroopsLvl${i}" class="block text-sm font-medium text-gray-200 mb-1">Troops Level:</label>
+                        <select id="playerTroopsLvl${i}" class="input-field" required>
+                            ${levelOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                        </select>
+                        <p id="troopsLvlError${i}" class="text-red-400 text-sm mt-1 hidden">Troops level must be same as FC level or one level below.</p>
+                    </div>
+                `;
+                playerInputsContainer.appendChild(playerDiv);
+
+                // Add event listeners for FC and Troops level validation
+                document.getElementById(`playerFcLvl${i}`).addEventListener('change', () => validateTroopsLevel(i));
+                document.getElementById(`playerTroopsLvl${i}`).addEventListener('change', () => validateTroopsLevel(i));
+
+                // Add event listener for alliance select coloring
+                document.getElementById(`playerAlliance${i}`).addEventListener('change', (event) => {
+                    const selectedAlliance = event.target.value;
+                    event.target.style.backgroundColor = allianceColors[selectedAlliance] || getComputedStyle(document.documentElement).getPropertyValue('--bg-lighter-than-dark'); // Default if not found
+                    // Adjusted logic: Check the actual hex color value for yellow to set black text
+                    event.target.style.color = (allianceColors[selectedAlliance] === '#F4D03F') ? 'black' : 'white';
+                });
+            }
+            // Perform an initial check on button validity after generating inputs
+            checkAllPlayerInputsValidity();
+        }
+
+        /**
+         * Validates the "Troops Level" selected for a player against their "FC Level".
+         * Troops Level must be the same as FC Level or one level below it.
+         * Updates error messages and button state.
+         * @param {number} playerIndex - The index of the player whose levels are being validated.
+         */
+        function validateTroopsLevel(playerIndex) {
+            const fcLvlSelect = document.getElementById(`playerFcLvl${playerIndex}`);
+            const troopsLvlSelect = document.getElementById(`playerTroopsLvl${playerIndex}`);
+            const troopsLvlError = document.getElementById(`troopsLvlError${playerIndex}`);
+
+            if (!fcLvlSelect || !troopsLvlSelect) return; // Exit if elements are not found
+
+            // Extract the numerical part of the FC and Troops levels
+            const fcLvl = parseInt(fcLvlSelect.value.split('-')[1]);
+            const troopsLvl = parseInt(troopsLvlSelect.value.split('-')[1]);
+
+            // Validation logic
+            if (troopsLvl > fcLvl || troopsLvl < fcLvl - 1) {
+                troopsLvlError.classList.remove('hidden'); // Show error if invalid
+            } else {
+                troopsLvlError.classList.add('hidden'); // Hide error if valid
+            }
+            // Re-check overall form validity after this individual field's validation
+            checkAllPlayerInputsValidity();
+        }
+
+        /**
+         * Checks the validity of all player input fields to enable/disable
+         * the "Start Matchmaking" button. Ensures all fields are filled and valid.
+         */
+        function checkAllPlayerInputsValidity() {
+            const numPlayers = parseInt(numPlayersInput.value);
+            let allValid = true;
+            for (let i = 0; i < numPlayers; i++) {
+                const playerNameInput = document.getElementById(`playerName${i}`);
+                const playerAllianceSelect = document.getElementById(`playerAlliance${i}`);
+                const playerFcLvlSelect = document.getElementById(`playerFcLvl${i}`);
+                const playerTroopsLvlSelect = document.getElementById(`playerTroopsLvl${i}`);
+                const troopsLvlError = document.getElementById(`troopsLvlError${i}`);
+
+                // Check if elements exist and their values are not empty, and if no validation errors are visible
+                if (!playerNameInput || playerNameInput.value.trim() === '' ||
+                    !playerAllianceSelect || playerAllianceSelect.value.trim() === '' ||
+                    !playerFcLvlSelect || playerFcLvlSelect.value.trim() === '' ||
+                    !playerTroopsLvlSelect || playerTroopsLvlSelect.value.trim() === '' ||
+                    (troopsLvlError && !troopsLvlError.classList.contains('hidden'))) {
+                    allValid = false;
+                    break; // Found an invalid input, no need to check further
+                }
+            }
+            // Enable or disable the button based on overall validity
+            if (allValid) {
+                nextToMatchmakingBtn.disabled = false;
+                nextToMatchmakingBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                nextToMatchmakingBtn.disabled = true;
+                nextToMatchmakingBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Add event listeners to the player inputs container for real-time validation checks
+        playerInputsContainer.addEventListener('input', checkAllPlayerInputsValidity);
+        playerInputsContainer.addEventListener('change', checkAllPlayerInputsValidity);
+
+
+        /**
+         * Calculates the initial Elo rating for a player based on their FC Level and Troops Level.
+         * The rating decreases as levels go down, with an additional penalty if Troops Level
+         * is one level below FC Level.
+         * @param {string} fcLevel - The FC level string (e.g., "Fc-8").
+         * @param {string} troopsLevel - The Troops level string (e.g., "Fc-8").
+         * @returns {number} The calculated initial Elo rating for the player.
+         */
+        function getInitialRating(fcLevel, troopsLevel) {
+            // Convert FC level (e.g., "Fc-8" -> 8) to a rank (0 for Fc-8, 7 for Fc-1)
+            const fcRank = 8 - parseInt(fcLevel.split('-')[1]);
+            const troopsRank = 8 - parseInt(troopsLevel.split('-')[1]);
+
+            let rating = 1350; // Base rating for the highest level (FC-8 FC-8)
+
+            // Deduct 20 points for each step down in FC level
+            rating -= fcRank * 20;
+
+            // Deduct an additional 10 points if troops level is exactly one below FC level
+            if (troopsRank === fcRank + 1) {
+                rating -= 10;
+            }
+            return rating;
+        }
+
+        /**
+         * Event listener for the "Start Matchmaking" button.
+         * Collects all entered player data, assigns initial ratings,
+         * saves the game state, and initiates the first round of matches.
+         */
+        nextToMatchmakingBtn.addEventListener('click', async () => {
+            players = []; // Reset the players array
+            const numPlayers = parseInt(numPlayersInput.value);
+            let allInputsValid = true; // Flag to track overall input validity
+
+            // Loop through all player input fields to collect data and validate
+            for (let i = 0; i < numPlayers; i++) {
+                const playerNameInput = document.getElementById(`playerName${i}`);
+                const playerAllianceSelect = document.getElementById(`playerAlliance${i}`);
+                const playerFcLvlSelect = document.getElementById(`playerFcLvl${i}`);
+                const playerTroopsLvlSelect = document.getElementById(`playerTroopsLvl${i}`);
+                const troopsLvlError = document.getElementById(`troopsLvlError${i}`);
+
+                // Perform client-side validation for each player's input
+                if (!playerNameInput || playerNameInput.value.trim() === '' ||
+                    !playerAllianceSelect || playerAllianceSelect.value.trim() === '' ||
+                    !playerFcLvlSelect || playerFcLvlSelect.value.trim() === '' ||
+                    !playerTroopsLvlSelect || playerTroopsLvlSelect.value.trim() === '' ||
+                    (troopsLvlError && !troopsLvlError.classList.contains('hidden'))) {
+                    allInputsValid = false; // Mark as invalid if any field is empty or has a validation error
+                    showModal("Please ensure all player details are filled correctly and troops levels are valid.");
+                    break; // Stop processing and show error
+                }
+
+                const fcLvl = playerFcLvlSelect.value;
+                const troopsLvl = playerTroopsLvlSelect.value;
+                // Calculate initial rating using the helper function
+                const initialRating = getInitialRating(fcLvl, troopsLvl);
+
+                // Add player data to the players array
+                players.push({
+                    id: `player_${Date.now()}_${i}`, // Generate a unique ID for each player
+                    name: playerNameInput.value.trim(),
+                    alliance: playerAllianceSelect.value,
+                    fcLevel: fcLvl,
+                    troopsLevel: troopsLvl,
+                    initialRating: initialRating,
+                    currentRating: initialRating, // Current rating starts as initial rating
+                });
+            }
+
+            // If all inputs are valid, proceed to matchmaking
+            if (allInputsValid) {
+                // Sort players by their initial rating (highest rating first)
+                players.sort((a, b) => b.currentRating - a.currentRating);
+                currentRound = 1; // Reset round number for a new game
+                await saveGameData(); // Save the initial player data to Firestore
+                startRound(); // Begin the first round of matches
+                updateDashboard(); // Update the dashboard with initial rankings
+                showPage(matchmakingPage); // Navigate to the matchmaking page
+            }
+        });
+
+        /**
+         * Sets up and displays matches for the current round.
+         * Players are sorted by their current rating and paired sequentially.
+         *
+         */
+        function startRound() {
+            currentRoundDisplay.textContent = currentRound; // Update round display
+            matches = []; // Clear matches from the previous round
+
+            // Sort players by current rating in descending order for matchmaking
+            players.sort((a, b) => b.currentRating - a.currentRating);
+
+            // Create pairs for matches (player 1 vs player 2, player 3 vs player 4, etc.)
+            for (let i = 0; i < players.length; i += 2) {
+                if (i + 1 < players.length) { // Ensure there's a second player for the pair
+                    matches.push({
+                        player1: players[i],
+                        player2: players[i + 1],
+                        winner: null // 'player1', 'player2', or null (initially no winner selected)
+                    });
+                }
+            }
+            renderMatches(); // Render the matches table on the UI
+            checkAllMatchesPlayed(); // Check if the "All Matches Played" button should be enabled/disabled
+        }
+
+        /**
+         * Renders (or re-renders) the table displaying the current round's matches.
+         * Includes dropdowns for selecting the winner of each match.
+         */
+        function renderMatches() {
+            if (matches.length === 0) {
+                // Display a message if no matches are available (e.g., game finished)
+                matchesContainer.innerHTML = '<p class="text-gray-300 text-center">No matches to display for this round. Game finished or not enough players.</p>';
+                allMatchedPlayedBtn.disabled = true;
+                allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+
+            // Build the HTML for the matches table
+            let tableHtml = `
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead>
+                        <tr>
+                            <th>Player 1 Name</th>
+                            <th>Player 1 Alliance</th>
+                            <th>Player 2 Name</th>
+                            <th>Player 2 Alliance</th>
+                            <th>Winner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            matches.forEach((match, index) => {
+                // Options for the winner dropdown for each match
+                const winnerOptions = `
+                    <option value="">Select Winner</option>
+                    <option value="player1">${match.player1.name}</option>
+                    <option value="player2">${match.player2.name}</option>
+                `;
+                tableHtml += `
+                    <tr>
+                        <td>${match.player1.name}</td>
+                        <td>${match.player1.alliance}</td>
+                        <td>${match.player2.name}</td>
+                        <td>${match.player2.alliance}</td>
+                        <td>
+                            <select class="input-field w-auto" data-match-index="${index}">
+                                ${winnerOptions}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+            matchesContainer.innerHTML = tableHtml; // Insert the table HTML into the container
+
+            // After rendering, attach event listeners to the dynamically created select elements
+            // This is crucial for handling changes correctly in a module script.
+            matches.forEach((match, index) => {
+                const selectElement = matchesContainer.querySelector(`[data-match-index="${index}"]`);
+                if (selectElement) {
+                    // Restore selected winner if applicable
+                    if (match.winner) {
+                        selectElement.value = match.winner;
+                    }
+                    // Attach the event listener
+                    selectElement.addEventListener('change', () => selectMatchWinner(selectElement));
+                }
+            });
+
+            checkAllMatchesPlayed(); // Re-check button state after rendering
+        }
+
+        /**
+         * Updates the winner property for a specific match object in the `matches` array
+         * based on user selection in the dropdown.
+         * @param {HTMLSelectElement} selectElement - The HTML select element that triggered the change.
+         */
+        function selectMatchWinner(selectElement) {
+            const index = parseInt(selectElement.dataset.matchIndex); // Get the match index from data attribute
+            // Update the winner for the corresponding match object; set to null if "Select Winner" is chosen
+            matches[index].winner = selectElement.value === "" ? null : selectElement.value;
+            checkAllMatchesPlayed(); // Check if all matches have winners selected
+        }
+
+        /**
+         * Checks if all matches in the current round have a winner selected.
+         * Enables/disables the "All Matches Played" button accordingly.
+         */
+        function checkAllMatchesPlayed() {
+            // Check if every match has a winner (not null and not an empty string)
+            const allWinnersSelected = matches.every(match => match.winner !== null && match.winner !== "");
+            if (allWinnersSelected) {
+                allMatchedPlayedBtn.disabled = false;
+                allMatchedPlayedBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                allMatchedPlayedBtn.disabled = true;
+                allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        /**
+         * Calculates new Elo ratings for two players after a match.
+         * @param {number} Ra - Current Elo rating of Player A.
+         * @param {number} Rb - Current Elo rating of Player B.
+         * @param {number} Sa - Actual score for Player A (1 for win, 0 for loss, 0.5 for draw).
+         * @returns {number[]} An array containing the new Elo ratings: [newRa, newRb].
+         */
+        function calculateElo(Ra, Rb, Sa) {
+            // Expected score for Player A
+            const Ea = 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
+            // Expected score for Player B (which is 1 - Ea)
+            const Eb = 1 / (1 + Math.pow(10, (Ra - Rb) / 400));
+
+            // Calculate new ratings
+            const newRa = Ra + K_FACTOR * (Sa - Ea);
+            const newRb = Rb + K_FACTOR * ((1 - Sa) - Eb); // If A wins (Sa=1), B loses (1-Sa=0)
+
+            // Round ratings to the nearest whole number
+            return [Math.round(newRa), Math.round(newRb)];
+        }
+
+        /**
+         * Event listener for the "All Matches Played" button.
+         * This function processes the results of the current round, updates player Elo ratings,
+         * saves the updated game state, and then initiates the next round of matches.
+         */
+        allMatchedPlayedBtn.addEventListener('click', async () => {
+            // Loop through each match to update player ratings
+            matches.forEach(match => {
+                // Find the actual player objects in the 'players' array using their unique IDs
+                const player1 = players.find(p => p.id === match.player1.id);
+                const player2 = players.find(p => p.id === match.player2.id);
+
+                if (player1 && player2) {
+                    let scoreP1 = 0; // Actual score for player 1 (1 for win, 0 for loss)
+                    if (match.winner === 'player1') {
+                        scoreP1 = 1;
+                    } else if (match.winner === 'player2') {
+                        scoreP1 = 0;
+                    }
+                    // Note: This implementation currently only supports wins/losses (no draws).
+                    // If draws were allowed, scoreP1 could be 0.5.
+
+                    // Calculate new Elo ratings for the two players
+                    const [newRatingP1, newRatingP2] = calculateElo(player1.currentRating, player2.currentRating, scoreP1);
+
+                    // Update the current rating of players in the main 'players' array
+                    player1.currentRating = newRatingP1;
+                    player2.currentRating = newRatingP2;
+                }
+            });
+
+            currentRound++; // Increment the round number
+            await saveGameData(); // Save the updated player data and round number to Firestore
+            updateDashboard(); // Refresh the dashboard to show new rankings
+
+            // Check if there are enough players remaining to form new matches for the next round
+            if (players.length >= 2) {
+                startRound(); // Initiate the next round of matches
+            } else {
+                // If not enough players for another match, the game is considered finished
+                showModal("All rounds complete! Not enough players for further matches. Please check the Dashboard for final rankings.");
+                matchesContainer.innerHTML = '<p class="text-gray-300 text-center text-lg mt-8">Game finished! Check the Dashboard for final rankings.</p>';
+                allMatchedPlayedBtn.disabled = true;
+                allMatchedPlayedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        /**
+         * Updates and displays the player rankings on the Dashboard page.
+         * Players are sorted by their current Elo rating in descending order.
+         */
+        function updateDashboard() {
+            // Create a copy of the players array and sort it by current rating (highest first)
+            const sortedPlayers = [...players].sort((a, b) => b.currentRating - a.currentRating);
+
+            if (sortedPlayers.length === 0) {
+                // Display a message if no player data is available
+                rankingsContainer.innerHTML = '<p class="text-gray-300 text-center">No player data available to display rankings.</p>';
+                return;
+            }
+
+            // Build the HTML for the rankings table
+            let tableHtml = `
+                <table class="min-w-full bg-white rounded-lg shadow-md">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Name</th>
+                            <th>Alliance</th>
+                            <th>FC Level</th>
+                            <th>Troops Level</th>
+                            <th>Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            sortedPlayers.forEach((player, index) => {
+                let rowClass = '';
+                // Determine the row class based on rank for specific styling
+                if (index === 0) {
+                    rowClass = 'rank-1-row';
+                } else if (index === 1 || index === 2) {
+                    rowClass = 'rank-2-3-row';
+                } else if (index >= 3 && index <= 9) { // Ranks 4 to 10 (index 3 to 9)
+                    rowClass = 'rank-4-10-row';
+                } else if (index >= 10 && index <= 19) { // Ranks 11 to 20 (index 10 to 19)
+                    rowClass = 'rank-11-20-row';
+                } else { // Ranks below 20 (index 20 and above)
+                    rowClass = 'rank-20-plus-row';
+                }
+
+                tableHtml += `
+                    <tr class="${rowClass}">
+                        <td class="font-bold">${index + 1}</td>
+                        <td>${player.name}</td>
+                        <td>${player.alliance}</td>
+                        <td>${player.fcLevel}</td>
+                        <td>${player.troopsLevel}</td>
+                        <td class="font-semibold">${player.currentRating}</td>
+                    </tr>
+                `;
+            });
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+            rankingsContainer.innerHTML = tableHtml; // Insert the table HTML into the dashboard container
+        }
+
+        // --- Tab Navigation Event Listeners ---
+        matchmakingTabBtn.addEventListener('click', () => showPage(matchmakingPage));
+        dashboardTabBtn.addEventListener('click', () => {
+            updateDashboard(); // Ensure dashboard is updated with the latest rankings before showing
+            showPage(dashboardPage);
+        });
+
+        // Event listener for closing the custom modal
+        modalCloseBtn.addEventListener('click', hideModal);
+
+        // --- Firebase Data Persistence Logic ---
+        // Collection name for storing game data in Firestore
+        const COLLECTION_NAME = 'eloRatingGames';
+
+        /**
+         * Saves the current game state (players array and current round number) to Firestore.
+         * Data is stored under the authenticated user's ID for privacy.
+         * Includes retry logic with exponential backoff for robust API calls.
+         */
+        async function saveGameData() {
+            // Ensure Firestore is initialized and a user ID is available
+            if (!db || userId === 'anonymous') {
+                console.warn("Firestore not initialized or user not authenticated. Cannot save data.");
+                return;
+            }
+
+            // Define the document reference for saving the game state
+            const gameDocRef = doc(db, "artifacts", appId, "users", userId, COLLECTION_NAME, "gameState");
+            let retries = 0;
+            const MAX_RETRIES = 5;
+            const BASE_DELAY_MS = 1000; // 1 second
+
+            while (retries < MAX_RETRIES) {
+                try {
+                    await setDoc(gameDocRef, {
+                        players: players,
+                        currentRound: currentRound,
+                        lastUpdated: serverTimestamp() // Firestore timestamp for when data was last updated
+                    }, { merge: true }); // Use merge to update fields without overwriting the entire document
+                    console.log("Game data saved successfully!");
+                    return; // Exit on successful save
+                } catch (e) {
+                    retries++;
+                    const delay = BASE_DELAY_MS * Math.pow(2, retries - 1); // Exponential backoff
+                    console.error(`Error saving game data (attempt ${retries}/${MAX_RETRIES}):`, e.code || e.message || e); // Log more specific error
+                    if (retries < MAX_RETRIES) {
+                        await new Promise(res => setTimeout(res, delay)); // Wait before retrying
+                    } else {
+                        showModal("Error saving game data. Please check your internet connection or Firebase setup."); // Improved message
+                        console.error("Max retries reached. Failed to save game data.");
+                    }
+                }
+            }
+        }
+
+        /**
+         * Loads the game state (players array and current round number) from Firestore.
+         * Data is loaded from the authenticated user's document.
+         * Includes retry logic with exponential backoff for robust API calls.
+         */
+        async function loadGameData() {
+            // Ensure Firestore is initialized and a user ID is available
+            if (!db || userId === 'anonymous') {
+                console.warn("Firestore not initialized or user not authenticated. Cannot load data.");
+                // Fallback to initial page if not ready
+                showPage(numPlayersPage);
+                return;
+            }
+
+            // Define the document reference for loading the game state
+            const gameDocRef = doc(db, "artifacts", appId, "users", userId, COLLECTION_NAME, "gameState");
+            let retries = 0;
+            const MAX_RETRIES = 5;
+            const BASE_DELAY_MS = 1000; // 1 second
+
+            while (retries < MAX_RETRIES) {
+                try {
+                    const docSnap = await getDoc(gameDocRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        players = data.players || []; // Load players data, default to empty array if not found
+                        currentRound = data.currentRound || 1; // Load current round, default to 1
+                        console.log("Game data loaded successfully!");
+
+                        if (players.length > 0) {
+                            // If players data exists, start the game from where it left off
+                            startRound();
+                            updateDashboard();
+                            showPage(matchmakingPage); // Display the matchmaking page
+                        } else {
+                            // If no player data, start a new game from the beginning
+                            showPage(numPlayersPage);
+                        }
+                    } else {
+                        console.log("No saved game data found. Starting fresh.");
+                        showPage(numPlayersPage); // No data, so start from the player count page
+                    }
+                    return; // Exit on successful load
+                } catch (e) {
+                    retries++;
+                    const delay = BASE_DELAY_MS * Math.pow(2, retries - 1); // Exponential backoff
+                    console.error(`Error loading game data (attempt ${retries}/${MAX_RETRIES}):`, e.code || e.message || e); // Log more specific error
+                    if (retries < MAX_RETRIES) {
+                        await new Promise(res => setTimeout(res, delay)); // Wait before retrying
+                    } else {
+                        showModal("Error loading game data. You will start a new game. Please check your internet connection or Firebase setup."); // Improved message
+                        console.error("Max retries reached. Failed to load game data.");
+                        showPage(numPlayersPage);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Initializes Firebase on window load and handles user authentication.
+         * Once authenticated, it attempts to load any previously saved game data.
+         */
+        window.onload = async function() {
+            try {
+                // Initialize Firebase app with the provided configuration
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app); // Get Firestore instance
+                auth = getAuth(app); // Get Auth instance
+
+                // Listen for changes in authentication state
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        // If a user is logged in (including anonymous), set the userId
+                        userId = user.uid;
+                        console.log("Firebase initialized and user authenticated:", userId);
+                        await loadGameData(); // Load game data specific to this user
+                    } else {
+                        // If no user is logged in, attempt to sign in anonymously
+                        // This ensures there's always a userId to store/retrieve data
+                        console.log("No user authenticated. Signing in anonymously...");
+                        await signInAnonymously(auth);
+                        // The onAuthStateChanged listener will trigger again with the new anonymous user
+                    }
+                });
+
+                // Attempt to sign in with a custom token if provided (e.g., from a Canvas environment)
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                }
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                showModal("Failed to initialize the game. Please try refreshing the page.");
+                showPage(numPlayersPage); // Fallback to the initial page on critical errors
+            }
+        };
+
+    </script>
+</body>
+</html>
